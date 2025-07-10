@@ -19,8 +19,6 @@
 
 #include <wasmedge/wasmedge.h>
 
-#include <any>
-#include <cfenv>
 #include <memory>
 #include <optional>
 #include <string>

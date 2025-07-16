@@ -217,7 +217,11 @@ public:
             std::string featureName = featureToName(feature);
             std::optional<uint256> featureHash =
                 getRegisteredFeature(featureName);
-            if (featureHash.has_value())
+
+            if (featureHash.has_value() &&
+                // If an unsupported amendment is set here, an error will occur
+                // in AmendmentTableImpl::enable().
+                ripple::detail::supportedAmendments().contains(featureName))
             {
                 std::string hashString = to_string(featureHash.value());
                 jsonValue["ledger"]["accountState"][1]["Amendments"].append(
@@ -12751,7 +12755,14 @@ public:
         testcase("Test util_keylet");
         using namespace jtx;
 
-        Env env{*this, features};
+        FeatureBitset supportedFeatures;
+        foreachFeature(features, [&](uint256 const& feature) {
+            std::string featureName = featureToName(feature);
+            if (ripple::detail::supportedAmendments().contains(featureName))
+                supportedFeatures.set(featureToBitsetIndex(feature));
+        });
+
+        Env env{*this, supportedFeatures};
 
         auto const alice = Account{"alice"};
         auto const bob = Account{"bob"};
@@ -15046,7 +15057,7 @@ public:
     run(std::uint32_t instance, bool last = false)
     {
         using namespace test::jtx;
-        static FeatureBitset const all{supported_amendments()};
+        static FeatureBitset const all{testable_amendments()};
 
         static std::array<FeatureBitset, 7> const feats{
             all,

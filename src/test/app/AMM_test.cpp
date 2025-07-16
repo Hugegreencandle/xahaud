@@ -65,7 +65,7 @@ private:
             {},
             0,
             {},
-            {supported_amendments() | featureSingleAssetVault});
+            {testable_amendments() | featureSingleAssetVault});
 
         // XRP to IOU, without featureSingleAssetVault
         testAMM(
@@ -76,7 +76,7 @@ private:
             {},
             0,
             {},
-            {supported_amendments() - featureSingleAssetVault});
+            {testable_amendments() - featureSingleAssetVault});
 
         // IOU to IOU
         testAMM(
@@ -1372,7 +1372,7 @@ private:
         testcase("Deposit");
 
         using namespace jtx;
-        auto const all = supported_amendments();
+        auto const all = testable_amendments();
 
         // Equal deposit: 1000000 tokens, 10% of the current pool
         testAMM([&](AMM& ammAlice, Env& env) {
@@ -1674,7 +1674,7 @@ private:
         testcase("Invalid Withdraw");
 
         using namespace jtx;
-        auto const all = supported_amendments();
+        auto const all = testable_amendments();
 
         testAMM(
             [&](AMM& ammAlice, Env& env) {
@@ -2246,7 +2246,7 @@ private:
         testcase("Withdraw");
 
         using namespace jtx;
-        auto const all = supported_amendments();
+        auto const all = testable_amendments();
 
         // Equal withdrawal by Carol: 1000000 of tokens, 10% of the current
         // pool
@@ -2624,7 +2624,7 @@ private:
     {
         testcase("Fee Vote");
         using namespace jtx;
-        auto const all = supported_amendments();
+        auto const all = testable_amendments();
 
         // One vote sets fee to 1%.
         testAMM([&](AMM& ammAlice, Env& env) {
@@ -4444,7 +4444,7 @@ private:
     {
         testcase("Amendment");
         using namespace jtx;
-        FeatureBitset const all{supported_amendments()};
+        FeatureBitset const all{testable_amendments()};
         FeatureBitset const noAMM{all - featureAMM};
         FeatureBitset const noNumber{all - fixUniversalNumber};
         FeatureBitset const noAMMAndNumber{
@@ -5105,7 +5105,7 @@ private:
         testcase("Auto Delete");
 
         using namespace jtx;
-        FeatureBitset const all{supported_amendments()};
+        FeatureBitset const all{testable_amendments()};
 
         {
             Env env(
@@ -5616,7 +5616,7 @@ private:
     {
         testcase("Fix Default Inner Object");
         using namespace jtx;
-        FeatureBitset const all{supported_amendments()};
+        FeatureBitset const all{testable_amendments()};
 
         auto test = [&](FeatureBitset features,
                         TER const& err1,
@@ -6327,7 +6327,7 @@ private:
             {{xrpPool, iouPool}},
             889,
             std::nullopt,
-            {jtx::supported_amendments()});
+            {jtx::testable_amendments()});
     }
 
     void
@@ -6564,7 +6564,8 @@ private:
         }
         // If featureAMMClawback is enabled, AMMCreate is allowed for
         // clawback-enabled issuer. Clawback from the AMM Account is not
-        // allowed, which will return tecAMM_ACCOUNT. We can only use
+        // allowed, which will return tecAMM_ACCOUNT or tecPSEUDO_ACCOUNT,
+        // depending on whether SingleAssetVault is enabled. We can only use
         // AMMClawback transaction to claw back from AMM Account.
         else
         {
@@ -6575,13 +6576,16 @@ private:
             // By doing this, we make the clawback transaction's Amount field's
             // subfield `issuer` to be the AMM account, which means
             // we are clawing back from an AMM account. This should return an
-            // tecAMM_ACCOUNT error because regular Clawback transaction is not
+            // error because regular Clawback transaction is not
             // allowed for clawing back from an AMM account. Please notice the
             // `issuer` subfield represents the account being clawed back, which
             // is confusing.
+            auto const error = features[featureSingleAssetVault]
+                ? ter{tecPSEUDO_ACCOUNT}
+                : ter{tecAMM_ACCOUNT};
             Issue usd(USD.issue().currency, amm.ammAccount());
             auto amount = amountFromString(usd, "10");
-            env(claw(gw, amount), ter(tecAMM_ACCOUNT));
+            env(claw(gw, amount), error);
         }
     }
 
@@ -6760,10 +6764,10 @@ private:
 
     //     testCase(
     //         "tecDUPLICATE",
-    //         supported_amendments() - featureSingleAssetVault);
+    //         testable_amendments() - featureSingleAssetVault);
     //     testCase(
     //         "terADDRESS_COLLISION",
-    //         supported_amendments() | featureSingleAssetVault);
+    //         testable_amendments() | featureSingleAssetVault);
     // }
 
     void
@@ -7172,16 +7176,16 @@ private:
         };
 
         testCase(
-            "tecDUPLICATE", supported_amendments() - featureSingleAssetVault);
+            "tecDUPLICATE", testable_amendments() - featureSingleAssetVault);
         testCase(
             "terADDRESS_COLLISION",
-            supported_amendments() | featureSingleAssetVault);
+            testable_amendments() | featureSingleAssetVault);
     }
 
     void
     run() override
     {
-        FeatureBitset const all{jtx::supported_amendments()};
+        FeatureBitset const all{jtx::testable_amendments()};
         testInvalidInstance();
         testInstanceCreate();
         testInvalidDeposit(all);
@@ -7215,6 +7219,8 @@ private:
         testFixAMMOfferBlockedByLOB(all);
         testLPTokenBalance(all);
         testAMMClawback(all);
+        testAMMClawback(all - featureSingleAssetVault);
+        testAMMClawback(all - featureAMMClawback - featureSingleAssetVault);
         testAMMClawback(all - featureAMMClawback);
         testAMMDepositWithFrozenAssets(all);
         testAMMDepositWithFrozenAssets(all - featureAMMClawback);

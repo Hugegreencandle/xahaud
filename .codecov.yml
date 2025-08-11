@@ -4,3 +4,23 @@ coverage:
       default:
         target: 60%
         threshold: 2%
+    patch:
+      default:
+        target: auto
+        threshold: 2%
+    changes: false
+
+github_checks:
+  annotations: true
+
+parsers:
+  cobertura:
+    partials_as_hits: true
+    handle_missing_conditions: true
+
+slack_app: false
+
+ignore:
+  - "src/test/"
+  - "include/xrpl/beast/test/"
+  - "include/xrpl/beast/unit_test/"
